@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-txt-configmap
+data:
+  user.txt: |
+    quera
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pass-txt-secret
+stringData:
+  pass.txt: |
+    1020315
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: python
+  labels:
+    app: python
+spec:
+  clusterIP: None
+  ports:
+  - port: 80
+    name: web
+  selector:
+    app: python
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: python
+spec:
+  serviceName: "python"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: python
+  template:
+    metadata:
+      labels:
+        app: python
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+      - name: python
+        image: python:3.9.10
+        command: ["/bin/sh", "-c"]
+        args:
+        - wget --no-directories --directory-prefix=python https://raw.githubusercontent.com/Digiexercise/simple-socket/main/sample-socket.py && python3 /python/sample-socket.py; sleep 3600
+        livenessProbe:
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          exec:
+            command:
+            - touch
+            - /tmp/healthy
+        volumeMounts:
+        - name: user-txt
+          mountPath: /tmp/user.txt
+          subPath: user.txt
+        - name: pass-txt
+          mountPath: /tmp/pass.txt
+          subPath: pass.txt
+      volumes:
+      - name: user-txt
+        configMap:
+          name: user-txt-configmap
+      - name: pass-txt
+        secret:
+          secretName: pass-txt-secret
